@@ -16,4 +16,4 @@ rm -f /var/www/html/stream.m3u8
 ffmpeg -hide_banner -loglevel panic -re -i pipe:0 -strict -2 -vcodec mjpeg -r 30 -c:v libx264 \
 -crf 18 -profile:v baseline -maxrate 300k -bufsize 600k -pix_fmt yuv420p \
 -codec:a libmp3lame -b:a 64k -flags -global_header -hls_allow_cache 0 \
--hls_time 5 -hls_wrap 6 /var/www/html/stream.m3u8
+-hls_time 3 -hls_wrap 6 /var/www/html/stream.m3u8

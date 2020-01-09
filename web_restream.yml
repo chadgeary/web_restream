@@ -75,7 +75,7 @@
         path: /var/www/html
         src: tmpfs
         fstype: tmpfs
-        opts: rw,nodev,nosuid,size=128M
+        opts: rw,nodev,nosuid,context="system_u:object_r:httpd_sys_content_t:s0",size=128M
         state: mounted
 
     - name: stream index.html (hls.js)

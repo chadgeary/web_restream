@@ -1,0 +1,118 @@
+---
+- name: web_restream
+  hosts: '{{ target }}'
+  become: True
+  become_user: root
+  tasks:
+    - name: system packages
+      yum:
+        name: ['epel-release', 'curl', 'git', 'httpd']
+        state: latest
+
+    - name: latest youtube-dl
+      get_url:
+        url: https://yt-dl.org/downloads/latest/youtube-dl
+        dest: /usr/local/bin/youtube-dl
+        force: yes
+        mode: '0555'
+        owner: root
+        group: root
+
+    - name: check ffmpeg downloaded
+      stat:
+        path: /opt/ffmpeg.tar.xz
+      register: ffmpeg_downloaded
+
+    - name: download ffmpeg when not downloaded
+      get_url:
+        url: https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-amd64-static.tar.xz
+        dest: /opt/ffmpeg.tar.xz
+        mode: '0444'
+      when: ffmpeg_downloaded.stat.exists == false
+
+    - name: check ffmpeg unarchived
+      find:
+        paths: '/opt/ffmpeg/'
+        file_type: directory
+        patterns: "*static*"
+      register: ffmpeg_unarchived
+
+    - name: ffmpeg directory
+      file:
+        path: /opt/ffmpeg
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: unarchive ffmpeg when not unarchived
+      unarchive:
+        src: /opt/ffmpeg.tar.xz
+        dest: /opt/ffmpeg
+        remote_src: yes
+      when: ffmpeg_unarchived.matched|int == 0
+
+    - name: set httpd cache files limit
+      blockinfile:
+        path: /etc/httpd/conf/httpd.conf
+        block: |
+          # set expiration on cached stream files
+          <IfModule mod_expires.c>
+            <FilesMatch "\.(js|m3u8|ts)$">
+              ExpiresActive On
+              ExpiresDefault "access plus 10 seconds"
+            </FilesMatch>
+          </IfModule>
+
+    - name: enable/start httpd
+      systemd:
+        name: httpd
+        state: restarted
+        enabled: yes
+
+    - name: /var/www/html ramdisk
+      mount:
+        path: /var/www/html
+        src: tmpfs
+        fstype: tmpfs
+        opts: rw,nodev,nosuid,size=128M
+        state: mounted
+
+    - name: stream index.html (hls.js)
+      copy:
+        src: index.html
+        dest: /var/www/html/index.html
+        mode: '0444'
+        owner: apache
+        group: apache
+
+    - name: ffmpeg web_restream script
+      copy:
+        src: web_restream.sh
+        dest: /usr/local/bin/web_restream
+        mode: '0555'
+        owner: root
+        group: root
+
+    - name: web_restream systemd unit
+      copy:
+        src: web_restream.service
+        dest: /etc/systemd/system/web_restream.service
+        mode: '0444'
+        owner: root
+        group: root
+
+    - name: web_restream input file
+      lineinfile:
+        path: /var/spool/web_restream.input
+        state: present
+        create: yes
+        insertbefore: BOF
+        line: '{{ youtube_url }}'
+
+    - name: web_restream systemd service
+      systemd:
+        name: web_restream
+        state: restarted
+        enabled: yes
+        daemon_reload: yes

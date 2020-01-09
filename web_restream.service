@@ -1,0 +1,17 @@
+[Unit]
+Description=Web Restream Service
+After=network.target
+
+[Service]
+User=apache
+SuccessExitStatus=0 1
+Restart=always
+RestartSec=2
+ProtectHome=true
+ProtectSystem=full
+PrivateDevices=true
+NoNewPrivileges=true
+ExecStart=-/usr/local/bin/web_restream
+
+[Install]
+WantedBy=multi-user.target
